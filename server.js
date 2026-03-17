@@ -1,31 +1,9 @@
-// server.js
-import express from 'express';
-import cors from 'cors';
-import OpenAI from 'openai';
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-app.use(cors());
-app.use(express.json());
-
-// OpenAI client (reads key from Render env var)
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Simple health check
-app.get('/', (req, res) => {
-  res.send('LockdIn AI backend is running');
-});
-
-// Real AI Review endpoint
 app.post('/ai-review', async (req, res) => {
   try {
     console.log('Received /ai-review payload');
     const payload = req.body;
 
-    // Take last 100 trades
+    // Last 100 trades
     const trades = Array.isArray(payload?.trades)
       ? payload.trades.slice(-100)
       : [];
@@ -81,8 +59,9 @@ ${JSON.stringify(trades)}
       response_format: { type: 'json_object' },
     });
 
-    const aiJson = JSON.parse(completion.choices[0].message.content);
+    console.log('Usage:', completion.usage);
 
+    const aiJson = JSON.parse(completion.choices[0].message.content);
     res.json(aiJson);
   } catch (err) {
     console.error('AI error on /ai-review:', err);
@@ -91,8 +70,4 @@ ${JSON.stringify(trades)}
       details: err.message || String(err),
     });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`LockdIn AI backend listening on ${PORT}`);
 });
