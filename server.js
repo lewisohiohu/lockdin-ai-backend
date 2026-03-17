@@ -25,10 +25,18 @@ app.post('/ai-review', async (req, res) => {
     console.log('Received /ai-review payload');
     const payload = req.body;
 
-    console.log(
-      'Trades count:',
-      Array.isArray(payload?.trades) ? payload.trades.length : 0
-    );
+    // Take last 100 trades
+    const trades = Array.isArray(payload?.trades)
+      ? payload.trades.slice(-100)
+      : [];
+
+    const basicStats = {
+      tradeCount: trades.length,
+      wins: trades.filter(t => t.result === 'win').length,
+      losses: trades.filter(t => t.result === 'loss').length,
+      breakEvens: trades.filter(t => t.result === 'be').length,
+      totalR: trades.reduce((sum, t) => sum + (t.r || 0), 0),
+    };
 
     const prompt = `
 You are a trading performance coach.
@@ -38,30 +46,36 @@ Return a JSON object with this exact shape:
 {
   "overall_summary": {
     "grade": "string like B-",
-    "headline": "one-line summary",
+    "headline": "one-line coaching headline about their performance",
     "pnl_summary": {
-      "total_pnl": number,
       "total_r": number,
       "win_rate": number
     }
   },
-  "strengths": ["string", "string"],
-  "weaknesses": ["string"],
-  "rules_for_next_10_trades": ["string", "string"],
-  "patterns": {
-    "best_setups": [{ "label": "string", "avg_r": number, "count": number }],
-    "worst_setups": [{ "label": "string", "avg_r": number, "count": number }]
-  }
+  "strengths": ["short coaching bullet", "short coaching bullet"],
+  "weaknesses": ["short coaching bullet"],
+  "coaching_notes": [
+    "specific, practical coaching note about their habits and mindset",
+    "another specific coaching note"
+  ]
 }
 
-Trader data to analyze (may be partial or empty):
-${JSON.stringify(payload)}
+Data to analyze (last 100 trades max):
+BASIC_STATS:
+${JSON.stringify(basicStats)}
+
+TRADES_JSON:
+${JSON.stringify(trades)}
 `;
 
     const completion = await client.chat.completions.create({
       model: 'gpt-4.1-mini',
       messages: [
-        { role: 'system', content: 'You are an expert trading performance coach. Respond ONLY with valid JSON matching the requested shape.' },
+        {
+          role: 'system',
+          content:
+            'You are an expert trading performance coach. Respond ONLY with valid JSON matching the requested shape. Be concise but specific.',
+        },
         { role: 'user', content: prompt },
       ],
       response_format: { type: 'json_object' },
@@ -71,13 +85,12 @@ ${JSON.stringify(payload)}
 
     res.json(aiJson);
   } catch (err) {
-  console.error('AI error on /ai-review:', err);
-  res.status(500).json({
-    error: 'AI review failed',
-    details: err.message || String(err),
-  });
-}
-
+    console.error('AI error on /ai-review:', err);
+    res.status(500).json({
+      error: 'AI review failed',
+      details: err.message || String(err),
+    });
+  }
 });
 
 app.listen(PORT, () => {
