@@ -71,11 +71,13 @@ ${JSON.stringify(payload)}
 
     res.json(aiJson);
   } catch (err) {
-    console.error('AI error on /ai-review:', err);
-    res.status(500).json({
-      error: 'AI review failed',
-    });
-  }
+  console.error('AI error on /ai-review:', err);
+  res.status(500).json({
+    error: 'AI review failed',
+    details: err.message || String(err),
+  });
+}
+
 });
 
 app.listen(PORT, () => {
